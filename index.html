@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>კინო</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --surface: #181b22;
+      --surface-hover: #20242d;
+      --border: #262a33;
+      --text: #e8e9ec;
+      --text-muted: #8b909c;
+      --accent: #e50914;
+      --accent-hover: #c40812;
+      --error: #ff6b6b;
+      --sidebar-width: 220px;
+      --bottombar-height: 64px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* ---------- ჩატვირთვა და ავტორიზაცია ---------- */
+
+    .splash {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+    }
+
+    .login {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .login__card {
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 32px 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .login__logo {
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .login__title {
+      font-size: 18px;
+      text-align: center;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .form-error {
+      color: var(--error);
+      font-size: 14px;
+    }
+
+    .form-error a {
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    /* ---------- ნავიგაცია: საიდბარი (დესკტოპი) ---------- */
+
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: var(--sidebar-width);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      z-index: 10;
+    }
+
+    .nav__logo {
+      font-size: 22px;
+      font-weight: 700;
+      padding: 0 12px;
+    }
+
+    .nav__links {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav__link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 12px;
+      background: none;
+      border: none;
+      border-radius: 8px;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 15px;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav__link:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    .nav__link.is-active {
+      background: var(--surface-hover);
+      color: var(--text);
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
+
+    .nav__link svg {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .nav__link.is-active svg {
+      stroke: var(--accent);
+    }
+
+    /* „დამატება“ ბმული — გამოყოფილი ღილაკის სახით */
+    .nav__link--add {
+      margin-top: 12px;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .nav__link--add:hover,
+    .nav__link--add.is-active {
+      background: var(--accent-hover);
+      color: #fff;
+      box-shadow: none;
+    }
+
+    .nav__link--add.is-active svg {
+      stroke: #fff;
+    }
+
+    /* „გასვლა“ საიდბარის ბოლოში */
+    .nav__link--logout {
+      margin-top: auto;
+    }
+
+    /* ---------- მთავარი შიგთავსი ---------- */
+
+    .content {
+      margin-left: var(--sidebar-width);
+      padding: 32px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      font-size: 28px;
+      margin-bottom: 24px;
+    }
+
+    .page-header .page-title {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 18px;
+      margin: 32px 0 14px;
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .filter,
+    .toggle span {
+      display: inline-block;
+      padding: 8px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .filter:hover,
+    .toggle span:hover {
+      color: var(--text);
+    }
+
+    .filter.is-active,
+    .toggle input:checked + span {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* ფორმაში მონიშვნის ღილაკები (მსახიობის კატეგორია) */
+    .toggles {
+      display: flex;
+      gap: 8px;
+    }
+
+    .toggle {
+      position: relative;
+    }
+
+    .toggle input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toggle input:focus-visible + span {
+      outline: 2px solid var(--text);
+    }
+
+    .empty {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .back {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .back:hover {
+      color: var(--text);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .btn--block {
+      width: 100%;
+      padding: 14px;
+      font-size: 15px;
+    }
+
+    .btn--ghost {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn--ghost:hover {
+      background: var(--surface-hover);
+    }
+
+    .load-more {
+      margin-top: 32px;
+    }
+
+    /* ---------- ჩამოსაშლელი სია (მსახიობების არჩევა ფორმაში) ---------- */
+
+    .dropdown {
+      position: relative;
+    }
+
+    .dropdown__toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .dropdown__toggle:focus-visible,
+    .dropdown__toggle[aria-expanded="true"] {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .dropdown__value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dropdown__value.is-placeholder {
+      color: var(--text-muted);
+    }
+
+    .dropdown__toggle svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      fill: none;
+      stroke: var(--text-muted);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: transform 0.15s;
+    }
+
+    .dropdown__toggle[aria-expanded="true"] svg {
+      transform: rotate(180deg);
+    }
+
+    .dropdown__menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      z-index: 20;
+      padding: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .dropdown__search {
+      width: 100%;
+      padding: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+    }
+
+    .dropdown__search:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .dropdown__options {
+      max-height: 240px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+
+    .dropdown__option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .dropdown__option:hover {
+      background: var(--surface-hover);
+    }
+
+    .dropdown__option input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .dropdown__note {
+      padding: 8px 10px;
+    }
+
+    /* ---------- ბარათები ---------- */
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      display: block;
+      background: var(--surface);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: transform 0.15s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+    }
+
+    /* სურათის ფონზე ფერადი გრადიენტია — ჩანს, თუ სურათი არ არის ან ვერ ჩაიტვირთა */
+    .image-box {
+      aspect-ratio: 1 / 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.85);
+      overflow: hidden;
+    }
+
+    .image-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .card__body {
+      padding: 12px;
+    }
+
+    .card__title {
+      font-size: 15px;
+    }
+
+    /* ლინკის ღილაკები სურათის ქვედა მარჯვენა კუთხეში, ვერტიკალურად */
+    .card__media {
+      position: relative;
+    }
+
+    .card__links {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .card__link {
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      transition: background 0.15s;
+    }
+
+    .card__link:hover {
+      background: var(--accent);
+    }
+
+    /* ---------- მსახიობის მიხედვით დაჯგუფებული სია ---------- */
+
+    .group + .group {
+      margin-top: 40px;
+    }
+
+    .group__header {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .group__header h2 {
+      font-size: 18px;
+      transition: color 0.15s;
+    }
+
+    a.group__header:hover h2 {
+      color: var(--accent);
+    }
+
+    .group__avatar {
+      width: 40px;
+      flex-shrink: 0;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .group__avatar .image-box {
+      font-size: 15px;
+    }
+
+    /* ---------- მსახიობის გვერდი ---------- */
+
+    .profile {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .profile .image-box {
+      width: 160px;
+      flex-shrink: 0;
+      border-radius: 10px;
+    }
+
+    .profile .page-title {
+      margin-bottom: 0;
+    }
+
+    /* ---------- ფორმები ---------- */
+
+    .form {
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    .tab {
+      position: relative;
+      flex: 1;
+    }
+
+    .tab input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .tab span {
+      display: block;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 14px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .tab input:checked + span {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .tab input:focus-visible + span {
+      outline: 2px solid var(--text);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field__label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .field input[type="text"],
+    .field input[type="url"],
+    .field input[type="password"] {
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+    }
+
+    .form .field input[type="text"],
+    .form .field input[type="url"] {
+      background: var(--surface);
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .link-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .preview {
+      width: 140px;
+      aspect-ratio: 1 / 1;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* ---------- მობილური: ქვედა ბარი ---------- */
+
+    @media (max-width: 768px) {
+      .nav {
+        top: auto;
+        right: 0;
+        width: auto;
+        height: var(--bottombar-height);
+        padding: 0;
+        border-right: none;
+        border-top: 1px solid var(--border);
+      }
+
+      .nav__logo {
+        display: none;
+      }
+
+      .nav__links {
+        flex-direction: row;
+        height: 100%;
+        gap: 0;
+      }
+
+      .nav__link {
+        flex: 1;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+        padding: 0;
+        border-radius: 0;
+        font-size: 11px;
+        text-align: center;
+      }
+
+      .nav__link:hover,
+      .nav__link.is-active {
+        background: none;
+        box-shadow: none;
+      }
+
+      /* ქვედა ბარში „დამატება“ წითელი ხატულაა, ფონის გარეშე */
+      .nav__link--add,
+      .nav__link--add:hover,
+      .nav__link--add.is-active {
+        margin-top: 0;
+        background: none;
+        color: var(--text-muted);
+      }
+
+      .nav__link--add svg,
+      .nav__link--add.is-active svg {
+        stroke: var(--accent);
+      }
+
+      .nav__link--add.is-active {
+        color: var(--text);
+      }
+
+      /* „გასვლა“ ქვედა ბარში მხოლოდ ხატულაა */
+      .nav__link--logout {
+        flex: 0 0 48px;
+        margin-top: 0;
+      }
+
+      .nav__link--logout span {
+        display: none;
+      }
+
+      .content {
+        margin-left: 0;
+        padding: 20px 16px calc(var(--bottombar-height) + 20px);
+      }
+
+      .page-title {
+        font-size: 22px;
+        margin-bottom: 16px;
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .profile {
+        gap: 16px;
+      }
+
+      .profile .image-box {
+        width: 110px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="splash" id="splash">იტვირთება...</div>
+
+  <!-- ავტორიზაცია — სხვა არაფერი ჩანს, სანამ ადმინი არ შევა -->
+  <section class="login" id="login" hidden>
+    <form class="login__card" id="login-form">
+      <div class="login__logo">🎬 კინო</div>
+      <h1 class="login__title">ადმინის შესვლა</h1>
+      <label class="field">
+        <span class="field__label">სახელი</span>
+        <input type="text" name="username" autocomplete="username" required>
+      </label>
+      <label class="field">
+        <span class="field__label">პაროლი</span>
+        <input type="password" name="password" autocomplete="current-password" required>
+      </label>
+      <p class="form-error" id="login-error" hidden></p>
+      <button type="submit" class="btn btn--block">შესვლა</button>
+    </form>
+  </section>
+
+  <!-- ადმინის პანელი -->
+  <div id="panel" hidden>
+    <nav class="nav">
+      <a href="#home" class="nav__logo">🎬 <span>კინო</span></a>
+      <div class="nav__links">
+        <a href="#home" class="nav__link" data-page="home">
+          <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
+          <span>მთავარი</span>
+        </a>
+        <a href="#movies" class="nav__link" data-page="movies">
+          <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>
+          <span>ფილმები</span>
+        </a>
+        <a href="#series" class="nav__link" data-page="series">
+          <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M8 2l4 4 4-4"/></svg>
+          <span>სერიალები</span>
+        </a>
+        <a href="#actors" class="nav__link" data-page="actors">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+          <span>მსახიობები</span>
+        </a>
+        <a href="#add" class="nav__link nav__link--add" data-page="add">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>დამატება</span>
+        </a>
+        <button type="button" class="nav__link nav__link--logout" id="logout" title="გასვლა">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+          <span>გასვლა</span>
+        </button>
+      </div>
+    </nav>
+
+    <main class="content" id="app"></main>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      initializeAuth,
+      indexedDBLocalPersistence,
+      browserLocalPersistence,
+      onAuthStateChanged,
+      signInWithEmailAndPassword,
+      signOut,
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      getDoc,
+      getDocs,
+      query,
+      where,
+      orderBy,
+      limit,
+      startAfter,
+      writeBatch,
+      arrayUnion,
+      serverTimestamp,
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // ================= Firebase-ის პარამეტრები =================
+    // Firebase Console → ⚙ Project settings → General → Your apps → Config.
+    // ეს მონაცემები საიდუმლო არ არის — მონაცემებს Firestore-ის უსაფრთხოების წესები იცავს.
+    const firebaseConfig = {
+      apiKey: "AIzaSyAis9dWladPNn2QGRQI_URvxIlJMhDIsC4",
+      authDomain: "movvid-3120.firebaseapp.com",
+      projectId: "movvid-3120",
+      storageBucket: "movvid-3120.firebasestorage.app",
+      messagingSenderId: "73200484503",
+      appId: "1:73200484503:web:f817aec6046b7a7af029d2",
+    };
+
+    // შესვლის სახელი ელფოსტად გადაიქცევა: "Admin" → "admin@kino.local".
+    // Firebase Authentication-ში ადმინი სწორედ ამ ელფოსტით უნდა შექმნა.
+    const LOGIN_EMAIL_DOMAIN = "kino.local";
+
+    // რამდენი მსახიობი ჩაიტვირთოს ერთ ჯერზე (Firestore-ის დღიური ლიმიტის დასაზოგად)
+    const PAGE_SIZE = 20;
+
+    const TYPES = {
+      movie: { collection: "movies", route: "movies", title: "ფილმები" },
+      series: { collection: "series", route: "series", title: "სერიალები" },
+      actor: { collection: "actors", route: "actors", title: "მსახიობები" },
+    };
+
+    const splash = document.getElementById("splash");
+    const loginSection = document.getElementById("login");
+    const loginForm = document.getElementById("login-form");
+    const loginError = document.getElementById("login-error");
+    const panel = document.getElementById("panel");
+    const app = document.getElementById("app");
+
+    const configured = !firebaseConfig.apiKey.startsWith("PASTE");
+    let auth = null;
+    let db = null;
+    if (configured) {
+      const firebaseApp = initializeApp(firebaseConfig);
+      // getAuth()-ის ნაცვლად: Google/popup შესვლის დამხმარე iframe არ გვჭირდება და ფაილიდან გახსნისას ჭედავს
+      auth = initializeAuth(firebaseApp, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] });
+      db = getFirestore(firebaseApp);
+    }
+
+    // ================= დამხმარე ფუნქციები =================
+
+    // ტექსტი HTML-ში უსაფრთხოდ რომ ჩაჯდეს
+    function escapeHtml(value) {
+      return String(value ?? "").replace(
+        /[&<>"']/g,
+        (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]
+      );
+    }
+
+    // სახელიდან გამოთვლილი ფერადი ფონი
+    function placeholderColor(text) {
+      let hash = 0;
+      for (const ch of text) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
+      return `linear-gradient(135deg, hsl(${hash} 55% 35%), hsl(${(hash + 50) % 360} 55% 20%))`;
+    }
+
+    function initials(text) {
+      return text
+        .split(" ")
+        .filter(Boolean)
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+    }
+
+    function isHttpUrl(value) {
+      return /^https?:\/\//i.test(value);
+    }
+
+    const toItem = (snapshot) => ({ id: snapshot.id, ...snapshot.data() });
+    const byName = (a, b) => (a.nameLower || "").localeCompare(b.nameLower || "", "ka");
+
+    // შეცდომის ჩვენება; Firebase-ის ბმულს (მაგ. ინდექსის შესაქმნელს) დასაჭერად აქცევს
+    function errorHtml(err) {
+      console.error(err);
+      const text = escapeHtml(err?.message || String(err)).replace(
+        /https:\/\/[^\s<]+/g,
+        (url) => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`
+      );
+      return `<p class="form-error">შეცდომა: ${text}</p>`;
+    }
+
+    function imageBox(item) {
+      const content = item.image
+        ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" onerror="this.remove()">`
+        : escapeHtml(initials(item.name));
+      return `<div class="image-box" style="background:${placeholderColor(item.name)}">${content}</div>`;
+    }
+
+    // ფილმის/სერიალის ლინკები — ნომრიანი ღილაკები 1, 2, 3...
+    function linkButtons(item) {
+      const links = (item.links || []).filter(isHttpUrl);
+      if (!links.length) return "";
+      return `
+        <div class="card__links">
+          ${links
+            .map(
+              (url, i) => `<a href="${escapeHtml(url)}" class="card__link" target="_blank" rel="noopener" title="ლინკი ${i + 1}">${i + 1}</a>`
+            )
+            .join("")}
+        </div>`;
+    }
+
+    function card(item, href) {
+      const tag = href ? "a" : "article";
+      return `
+        <${tag} class="card" ${href ? `href="${href}"` : ""}>
+          <div class="card__media">
+            ${imageBox(item)}
+            ${linkButtons(item)}
+          </div>
+          <div class="card__body">
+            <h2 class="card__title">${escapeHtml(item.name)}</h2>
+          </div>
+        </${tag}>`;
+    }
+
+    function actorHref(actor) {
+      return `#actor/${encodeURIComponent(actor.id)}`;
+    }
+
+    // ================= Firestore-დან წაკითხვა =================
+
+    // მსახიობების ერთი გვერდი ანბანის მიხედვით; category = "movie" / "series" / null
+    async function fetchActorsPage(category, cursor) {
+      const constraints = [];
+      if (category) constraints.push(where("categories", "array-contains", category));
+      constraints.push(orderBy("nameLower"));
+      if (cursor) constraints.push(startAfter(cursor));
+      constraints.push(limit(PAGE_SIZE));
+      const snap = await getDocs(query(collection(db, "actors"), ...constraints));
+      return { actors: snap.docs.map(toItem), cursor: snap.docs[snap.docs.length - 1] || cursor, hasMore: snap.docs.length === PAGE_SIZE };
+    }
+
+    // ამ მსახიობების (მაქს. 30) ფილმები/სერიალები
+    async function fetchItemsForActors(types, actorIds) {
+      if (!actorIds.length) return [];
+      const snaps = await Promise.all(
+        types.map((t) => getDocs(query(collection(db, TYPES[t].collection), where("actorIds", "array-contains-any", actorIds))))
+      );
+      return snaps.flatMap((s) => s.docs.map(toItem)).sort(byName);
+    }
+
+    // ფილმები/სერიალები, რომლებსაც მსახიობი არ აქვთ მიბმული
+    async function fetchItemsWithoutActors(types) {
+      const snaps = await Promise.all(
+        types.map((t) => getDocs(query(collection(db, TYPES[t].collection), where("actorIds", "==", []))))
+      );
+      return snaps.flatMap((s) => s.docs.map(toItem)).sort(byName);
+    }
+
+    // ================= გვერდები =================
+
+    function pageHeader(title, addHref) {
+      return `
+        <div class="page-header">
+          <h1 class="page-title">${title}</h1>
+          <a href="${addHref}" class="btn">+ დამატება</a>
+        </div>`;
+    }
+
+    // სია ნაწილ-ნაწილ ჩატვირთვით: loadPage() ამატებს შიგთავსს და აბრუნებს { added, hasMore }
+    async function paginatedList(container, isCurrent, loadPage) {
+      const status = container.querySelector(".list-status");
+      const more = container.querySelector(".load-more");
+      let total = 0;
+
+      async function next() {
+        more.hidden = true;
+        status.hidden = false;
+        status.textContent = "იტვირთება...";
+        try {
+          const { added, hasMore } = await loadPage();
+          if (!isCurrent()) return;
+          total += added;
+          status.textContent = "ჯერ არაფერია დამატებული.";
+          status.hidden = total > 0;
+          more.hidden = !hasMore;
+        } catch (err) {
+          if (!isCurrent()) return;
+          status.hidden = true;
+          status.insertAdjacentHTML("beforebegin", errorHtml(err));
+        }
+      }
+
+      more.addEventListener("click", next);
+      await next();
+    }
+
+    const listShell = (inner) => `
+      ${inner}
+      <p class="empty list-status"></p>
+      <button type="button" class="btn btn--ghost load-more" hidden>მეტის ჩვენება</button>`;
+
+    // მთავარი (type = null), ფილმები ან სერიალები — დაჯგუფებული მსახიობების მიხედვით (ანბანით)
+    async function groupedPage(type, isCurrent) {
+      app.innerHTML =
+        pageHeader(type ? TYPES[type].title : "მთავარი", type ? `#add/${type}` : "#add") +
+        listShell(`<div class="groups"></div>`);
+      const groups = app.querySelector(".groups");
+      const itemTypes = type ? [type] : ["movie", "series"];
+      let cursor = null;
+
+      await paginatedList(app, isCurrent, async () => {
+        const page = await fetchActorsPage(type, cursor);
+        cursor = page.cursor;
+        const items = await fetchItemsForActors(itemTypes, page.actors.map((a) => a.id));
+        // მსახიობის გარეშე დარჩენილები — ბოლოს, „სხვა“-ში
+        const others = page.hasMore ? [] : await fetchItemsWithoutActors(itemTypes);
+        if (!isCurrent()) return { added: 0, hasMore: false };
+
+        let html = page.actors
+          .map((actor) => {
+            const own = items.filter((i) => (i.actorIds || []).includes(actor.id));
+            return `
+              <section class="group">
+                <a href="${actorHref(actor)}" class="group__header">
+                  <span class="group__avatar">${imageBox(actor)}</span>
+                  <h2>${escapeHtml(actor.name)}</h2>
+                </a>
+                ${own.length ? `<div class="grid">${own.map((i) => card(i)).join("")}</div>` : `<p class="empty">ჯერ არაფერია დამატებული.</p>`}
+              </section>`;
+          })
+          .join("");
+        if (others.length) {
+          html += `
+            <section class="group">
+              <div class="group__header"><h2>სხვა</h2></div>
+              <div class="grid">${others.map((i) => card(i)).join("")}</div>
+            </section>`;
+        }
+        groups.insertAdjacentHTML("beforeend", html);
+        return { added: page.actors.length + others.length, hasMore: page.hasMore };
+      });
+    }
+
+    // მსახიობების ფილტრი: null = ყველა, "movie" = ფილმების მსახიობები, "series" = სერიალების მსახიობები
+    let actorFilter = null;
+
+    async function actorsPage(isCurrent) {
+      const filterButton = (type, label) =>
+        `<button type="button" class="filter ${actorFilter === type ? "is-active" : ""}" data-actor-filter="${type}" aria-pressed="${actorFilter === type}">${label}</button>`;
+
+      app.innerHTML =
+        pageHeader("მსახიობები", "#add/actor") +
+        `<div class="filters">${filterButton("movie", "ფილმები")}${filterButton("series", "სერიალები")}</div>` +
+        listShell(`<div class="grid"></div>`);
+      const grid = app.querySelector(".grid");
+      let cursor = null;
+
+      await paginatedList(app, isCurrent, async () => {
+        const page = await fetchActorsPage(actorFilter, cursor);
+        cursor = page.cursor;
+        if (!isCurrent()) return { added: 0, hasMore: false };
+        grid.insertAdjacentHTML("beforeend", page.actors.map((a) => card(a, actorHref(a))).join(""));
+        return { added: page.actors.length, hasMore: page.hasMore };
+      });
+    }
+
+    // მსახიობის გვერდი — ფილმები და სერიალები, რომლებშიც მონაწილეობს
+    async function actorPage(id, isCurrent) {
+      app.innerHTML = `<a href="#actors" class="back">← მსახიობები</a><p class="empty">იტვირთება...</p>`;
+      try {
+        const [actorSnap, moviesSnap, seriesSnap] = await Promise.all([
+          getDoc(doc(db, "actors", id)),
+          getDocs(query(collection(db, "movies"), where("actorIds", "array-contains", id))),
+          getDocs(query(collection(db, "series"), where("actorIds", "array-contains", id))),
+        ]);
+        if (!isCurrent()) return;
+        if (!actorSnap.exists()) {
+          app.innerHTML = `<a href="#actors" class="back">← მსახიობები</a><p class="empty">მსახიობი ვერ მოიძებნა.</p>`;
+          return;
+        }
+
+        const actor = toItem(actorSnap);
+        const section = (snap, title) => {
+          const items = snap.docs.map(toItem).sort(byName);
+          return `
+            <h2 class="section-title">${title}</h2>
+            ${items.length ? `<div class="grid">${items.map((i) => card(i)).join("")}</div>` : `<p class="empty">ჯერ არცერთი.</p>`}`;
+        };
+
+        app.innerHTML = `
+          <a href="#actors" class="back">← მსახიობები</a>
+          <div class="profile">
+            ${imageBox(actor)}
+            <h1 class="page-title">${escapeHtml(actor.name)}</h1>
+          </div>
+          ${section(moviesSnap, "ფილმები")}
+          ${section(seriesSnap, "სერიალები")}`;
+      } catch (err) {
+        if (isCurrent()) app.insertAdjacentHTML("beforeend", errorHtml(err));
+      }
+    }
+
+    function addPage(initialType) {
+      app.innerHTML = `
+        <h1 class="page-title">დამატება</h1>
+
+        <form class="form" id="add-form">
+          <div class="tabs" role="radiogroup" aria-label="რას ამატებ">
+            <label class="tab"><input type="radio" name="type" value="movie" checked><span>ფილმი</span></label>
+            <label class="tab"><input type="radio" name="type" value="series"><span>სერიალი</span></label>
+            <label class="tab"><input type="radio" name="type" value="actor"><span>მსახიობი</span></label>
+          </div>
+
+          <label class="field">
+            <span class="field__label" id="name-label">სახელწოდება *</span>
+            <input type="text" name="name" required maxlength="200">
+          </label>
+
+          <div class="field">
+            <span class="field__label">სურათის ლინკი</span>
+            <input type="url" name="imageUrl" placeholder="https://...">
+            <div class="preview" hidden><img alt="სურათის გადახედვა"></div>
+          </div>
+
+          <div class="field" data-for="actor">
+            <span class="field__label">კატეგორია</span>
+            <div class="toggles">
+              <label class="toggle"><input type="checkbox" name="actorCategories" value="movie"><span>ფილმები</span></label>
+              <label class="toggle"><input type="checkbox" name="actorCategories" value="series"><span>სერიალები</span></label>
+            </div>
+          </div>
+
+          <div class="field" data-for="movie series">
+            <span class="field__label">ლინკები</span>
+            <div class="link-fields">
+              ${[1, 2, 3, 4, 5]
+                .map((n) => `<input type="url" name="links" placeholder="ლინკი ${n} — https://..." aria-label="ლინკი ${n}">`)
+                .join("")}
+            </div>
+          </div>
+
+          <div class="field" data-for="movie series">
+            <span class="field__label">მსახიობები</span>
+            <div class="dropdown" id="actor-dropdown">
+              <button type="button" class="dropdown__toggle" aria-expanded="false">
+                <span class="dropdown__value is-placeholder">აირჩიე მსახიობები</span>
+                <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="dropdown__menu" hidden>
+                <input type="search" class="dropdown__search" placeholder="ძებნა სახელით..." aria-label="მსახიობის ძებნა">
+                <div class="dropdown__options"></div>
+                <p class="empty dropdown__note" hidden></p>
+              </div>
+            </div>
+          </div>
+
+          <p class="form-error" id="add-error" hidden></p>
+          <button type="submit" class="btn btn--block">შენახვა</button>
+        </form>`;
+
+      setupAddForm(initialType);
+    }
+
+    // მსახიობების ჩამოსაშლელი სია: ძებნა Firestore-ში ანბანის მიხედვით და მონიშნულების დამახსოვრება
+    function setupActorDropdown(dropdown) {
+      const toggle = dropdown.querySelector(".dropdown__toggle");
+      const menu = dropdown.querySelector(".dropdown__menu");
+      const search = dropdown.querySelector(".dropdown__search");
+      const value = dropdown.querySelector(".dropdown__value");
+      const options = dropdown.querySelector(".dropdown__options");
+      const note = dropdown.querySelector(".dropdown__note");
+      const selected = new Map(); // id → სახელი
+      const SEARCH_LIMIT = 20;
+      let loaded = false;
+      let searchId = 0;
+      let searchTimer = null;
+
+      function showNote(text) {
+        note.textContent = text;
+        note.hidden = !text;
+      }
+
+      async function runSearch() {
+        const id = ++searchId;
+        const text = search.value.trim().toLowerCase();
+        showNote("იტვირთება...");
+        try {
+          const constraints = [orderBy("nameLower")];
+          // სახელის დასაწყისით ძებნა
+          if (text) constraints.push(where("nameLower", ">=", text), where("nameLower", "<=", text + ""));
+          constraints.push(limit(SEARCH_LIMIT));
+          const snap = await getDocs(query(collection(db, "actors"), ...constraints));
+          if (id !== searchId) return;
+
+          const actors = snap.docs.map(toItem);
+          options.innerHTML = actors
+            .map(
+              (a) => `<label class="dropdown__option"><input type="checkbox" value="${escapeHtml(a.id)}" data-name="${escapeHtml(a.name)}" ${selected.has(a.id) ? "checked" : ""}><span>${escapeHtml(a.name)}</span></label>`
+            )
+            .join("");
+
+          if (!actors.length) showNote(text ? "ვერ მოიძებნა." : "ჯერ არცერთი მსახიობი არ არის დამატებული.");
+          else if (actors.length === SEARCH_LIMIT) showNote(`ნაჩვენებია პირველი ${SEARCH_LIMIT} — სხვების საპოვნელად ჩაწერე სახელი.`);
+          else showNote("");
+        } catch (err) {
+          if (id === searchId) showNote("შეცდომა: " + (err.message || err));
+        }
+      }
+
+      toggle.addEventListener("click", () => {
+        const open = menu.hidden;
+        menu.hidden = !open;
+        toggle.setAttribute("aria-expanded", open);
+        if (open) {
+          search.focus();
+          if (!loaded) {
+            loaded = true;
+            runSearch();
+          }
+        }
+      });
+
+      search.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(runSearch, 300);
+      });
+
+      // ძებნის ველში Enter ფორმას არ უნდა აგზავნიდეს
+      search.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") e.preventDefault();
+      });
+
+      options.addEventListener("change", (e) => {
+        const input = e.target;
+        if (input.checked) selected.set(input.value, input.dataset.name);
+        else selected.delete(input.value);
+
+        const names = [...selected.values()];
+        value.textContent =
+          names.length === 0 ? "აირჩიე მსახიობები" : names.length <= 2 ? names.join(", ") : `არჩეულია ${names.length} მსახიობი`;
+        value.classList.toggle("is-placeholder", names.length === 0);
+      });
+
+      return () => [...selected.keys()];
+    }
+
+    // ჩამოსაშლელი სია იხურება მის გარეთ დაჭერისას ან Escape-ზე
+    function closeDropdowns(except) {
+      document.querySelectorAll(".dropdown").forEach((dropdown) => {
+        if (dropdown === except) return;
+        dropdown.querySelector(".dropdown__menu").hidden = true;
+        dropdown.querySelector(".dropdown__toggle").setAttribute("aria-expanded", "false");
+      });
+    }
+
+    document.addEventListener("click", (e) => closeDropdowns(e.target.closest(".dropdown")));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeDropdowns();
+    });
+
+    function setupAddForm(initialType) {
+      const form = document.getElementById("add-form");
+      const nameLabel = document.getElementById("name-label");
+      const errorBox = document.getElementById("add-error");
+      const submitButton = form.querySelector('button[type="submit"]');
+      const preview = form.querySelector(".preview");
+      const previewImg = preview.querySelector("img");
+      const getSelectedActors = setupActorDropdown(document.getElementById("actor-dropdown"));
+
+      form.elements.type.value = initialType;
+
+      // ჩანს მხოლოდ არჩეული ტიპის ველები
+      function updateType() {
+        const type = form.elements.type.value;
+        form.querySelectorAll("[data-for]").forEach((el) => {
+          el.hidden = !el.dataset.for.split(" ").includes(type);
+        });
+        nameLabel.textContent = type === "actor" ? "სახელი და გვარი *" : "სახელწოდება *";
+      }
+
+      previewImg.onerror = () => (preview.hidden = true);
+      form.elements.imageUrl.addEventListener("input", (e) => {
+        const url = e.target.value.trim();
+        preview.hidden = !isHttpUrl(url);
+        if (isHttpUrl(url)) previewImg.src = url;
+      });
+
+      form.addEventListener("change", (e) => {
+        if (e.target.name === "type") updateType();
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = form.elements.name.value.trim();
+        if (!name) {
+          form.elements.name.value = "";
+          form.reportValidity();
+          return;
+        }
+
+        const type = form.elements.type.value;
+        const data = new FormData(form);
+        const imageUrl = data.get("imageUrl").trim();
+        const base = {
+          name,
+          nameLower: name.toLowerCase(), // ანბანით დალაგებისა და ძებნისთვის
+          image: isHttpUrl(imageUrl) ? imageUrl : "",
+          createdAt: serverTimestamp(),
+        };
+
+        const batch = writeBatch(db);
+        const ref = doc(collection(db, TYPES[type].collection));
+        if (type === "actor") {
+          batch.set(ref, { ...base, categories: data.getAll("actorCategories") });
+        } else {
+          const actorIds = getSelectedActors();
+          // მხოლოდ შევსებული ველები — რამდენიც ჩაწერე, იმდენი ღილაკი გამოჩნდება
+          const links = data.getAll("links").map((url) => url.trim()).filter(isHttpUrl).slice(0, 5);
+          batch.set(ref, { ...base, links, actorIds });
+          // არჩეულ მსახიობებს ეს კატეგორია ავტომატურად მიეწერებათ
+          actorIds.forEach((id) => batch.update(doc(db, "actors", id), { categories: arrayUnion(type) }));
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = "ინახება...";
+        errorBox.hidden = true;
+        try {
+          await batch.commit();
+          location.hash = TYPES[type].route;
+        } catch (err) {
+          console.error(err);
+          errorBox.textContent = "შენახვა ვერ მოხერხდა: " + (err.message || err);
+          errorBox.hidden = false;
+          submitButton.disabled = false;
+          submitButton.textContent = "შენახვა";
+        }
+      });
+
+      updateType();
+    }
+
+    // ================= ნავიგაცია გვერდებს შორის (#home, #movies, #series, #actors, #actor/id, #add) =================
+
+    let renderId = 0;
+
+    async function render() {
+      const id = ++renderId;
+      const isCurrent = () => id === renderId && !panel.hidden;
+      const [page, param = ""] = location.hash.slice(1).split("/");
+
+      const navPage = { movies: "movies", series: "series", actors: "actors", actor: "actors", add: "add" }[page] || "home";
+      document.querySelectorAll(".nav__link[data-page]").forEach((link) => {
+        link.classList.toggle("is-active", link.dataset.page === navPage);
+      });
+      document.title = document.querySelector(".nav__link.is-active span").textContent + " · კინო";
+
+      if (page === "movies") await groupedPage("movie", isCurrent);
+      else if (page === "series") await groupedPage("series", isCurrent);
+      else if (page === "actors") await actorsPage(isCurrent);
+      else if (page === "actor") await actorPage(decodeURIComponent(param), isCurrent);
+      else if (page === "add") addPage(TYPES[param] ? param : "movie");
+      else await groupedPage(null, isCurrent);
+    }
+
+    // მსახიობების ფილტრის ღილაკები; აქტიურზე ხელახლა დაჭერა ფილტრს მოხსნის
+    app.addEventListener("click", (e) => {
+      const button = e.target.closest("[data-actor-filter]");
+      if (!button) return;
+      const type = button.dataset.actorFilter;
+      actorFilter = actorFilter === type ? null : type;
+      render();
+    });
+
+    window.addEventListener("hashchange", () => {
+      if (panel.hidden) return;
+      render();
+      window.scrollTo(0, 0);
+    });
+
+    // ================= ავტორიზაცია =================
+
+    function showLogin() {
+      renderId++; // მიმდინარე ჩატვირთვები აღარ გამოჩნდეს
+      splash.hidden = true;
+      panel.hidden = true;
+      app.innerHTML = "";
+      loginSection.hidden = false;
+    }
+
+    function showPanel() {
+      splash.hidden = true;
+      loginSection.hidden = true;
+      panel.hidden = false;
+      render();
+    }
+
+    if (!configured) {
+      showLogin();
+      loginError.textContent = "Firebase-ის პარამეტრები (firebaseConfig) ჯერ არ არის ჩასმული index.html-ში.";
+      loginError.hidden = false;
+      loginForm.querySelector("button").disabled = true;
+    } else {
+      onAuthStateChanged(auth, (user) => (user ? showPanel() : showLogin()));
+    }
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const button = loginForm.querySelector("button");
+      const username = loginForm.elements.username.value.trim().toLowerCase();
+      const password = loginForm.elements.password.value;
+
+      button.disabled = true;
+      loginError.hidden = true;
+      try {
+        await signInWithEmailAndPassword(auth, `${username}@${LOGIN_EMAIL_DOMAIN}`, password);
+        loginForm.reset();
+      } catch (err) {
+        loginError.textContent =
+          err.code === "auth/too-many-requests"
+            ? "ძალიან ბევრი მცდელობა. სცადე ცოტა ხანში."
+            : err.code === "auth/network-request-failed"
+              ? "ინტერნეტთან კავშირი ვერ დამყარდა."
+              : "სახელი ან პაროლი არასწორია.";
+        loginError.hidden = false;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    document.getElementById("logout").addEventListener("click", async () => {
+      await signOut(auth);
+      history.replaceState(null, "", location.pathname);
+    });
+  </script>
+</body>
+</html>
