@@ -912,7 +912,7 @@
         </a>
         <a href="#series" class="nav__link" data-page="series">
           <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M8 2l4 4 4-4"/></svg>
-          <span>სერიალები</span>
+          <span>ლაივი</span>
         </a>
         <a href="#actors" class="nav__link" data-page="actors">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
@@ -980,7 +980,7 @@
 
     const TYPES = {
       movie: { collection: "movies", route: "movies", title: "ფილმები" },
-      series: { collection: "series", route: "series", title: "სერიალები" },
+      series: { collection: "series", route: "series", title: "ლაივი" },
       actor: { collection: "actors", route: "actors", title: "მსახიობები" },
     };
 
@@ -1130,7 +1130,7 @@
     // ჩანაწერს ტიპიც ახლავს ("movie" / "series"), რომ ბარათმა იცოდეს, რას არედაქტირებს
     const withType = (type) => (snapshot) => ({ ...toItem(snapshot), type });
 
-    // ამ მსახიობების (მაქს. 30) ფილმები/სერიალები
+    // ამ მსახიობების (მაქს. 30) ფილმები/ლაივი
     async function fetchItemsForActors(types, actorIds) {
       if (!actorIds.length) return [];
       const snaps = await Promise.all(
@@ -1139,7 +1139,7 @@
       return snaps.flatMap((s, i) => s.docs.map(withType(types[i]))).sort(byName);
     }
 
-    // ფილმები/სერიალები, რომლებსაც მსახიობი არ აქვთ მიბმული
+    // ფილმები/ლაივი, რომლებსაც მსახიობი არ აქვთ მიბმული
     async function fetchItemsWithoutActors(types) {
       const snaps = await Promise.all(
         types.map((t) => getDocs(query(collection(db, TYPES[t].collection), where("actorIds", "==", []))))
@@ -1190,7 +1190,7 @@
       <p class="empty list-status"></p>
       <button type="button" class="btn btn--ghost load-more" hidden>მეტის ჩვენება</button>`;
 
-    // მთავარი (type = null), ფილმები ან სერიალები — დაჯგუფებული მსახიობების მიხედვით (ანბანით)
+    // მთავარი (type = null), ფილმები ან ლაივი — დაჯგუფებული მსახიობების მიხედვით (ანბანით)
     async function groupedPage(type, isCurrent) {
       app.innerHTML =
         pageHeader(type ? TYPES[type].title : "მთავარი", type ? `#add/${type}` : "#add") +
@@ -1234,7 +1234,7 @@
       });
     }
 
-    // მსახიობების ფილტრი: null = ყველა, "movie" = ფილმების მსახიობები, "series" = სერიალების მსახიობები
+    // მსახიობების ფილტრი: null = ყველა, "movie" = ფილმების მსახიობები, "series" = ლაივის მსახიობები
     let actorFilter = null;
 
     async function actorsPage(isCurrent) {
@@ -1243,7 +1243,7 @@
 
       app.innerHTML =
         pageHeader("მსახიობები", "#add/actor") +
-        `<div class="filters">${filterButton("movie", "ფილმები")}${filterButton("series", "სერიალები")}</div>` +
+        `<div class="filters">${filterButton("movie", "ფილმები")}${filterButton("series", "ლაივი")}</div>` +
         listShell(`<div class="grid"></div>`);
       const grid = app.querySelector(".grid");
       let cursor = null;
@@ -1257,7 +1257,7 @@
       });
     }
 
-    // მსახიობის გვერდი — ფილმები და სერიალები, რომლებშიც მონაწილეობს
+    // მსახიობის გვერდი — ფილმები და ლაივი, რომლებშიც მონაწილეობს
     async function actorPage(id, isCurrent) {
       app.innerHTML = `<a href="#actors" class="back">← მსახიობები</a><p class="empty">იტვირთება...</p>`;
       try {
@@ -1293,7 +1293,7 @@
             </div>
           </div>
           ${section(moviesSnap, "movie", "ფილმები")}
-          ${section(seriesSnap, "series", "სერიალები")}`;
+          ${section(seriesSnap, "series", "ლაივი")}`;
       } catch (err) {
         if (isCurrent()) app.insertAdjacentHTML("beforeend", errorHtml(err));
       }
@@ -1345,7 +1345,7 @@
             <span class="field__label">კატეგორია</span>
             <div class="toggles">
               <label class="toggle"><input type="checkbox" name="actorCategories" value="movie"><span>ფილმები</span></label>
-              <label class="toggle"><input type="checkbox" name="actorCategories" value="series"><span>სერიალები</span></label>
+              <label class="toggle"><input type="checkbox" name="actorCategories" value="series"><span>ლაივი</span></label>
             </div>
           </div>
 
@@ -1603,7 +1603,7 @@
       const batch = writeBatch(db);
       batch.delete(doc(db, TYPES[type].collection, id));
       if (type === "actor") {
-        // წაშლილი მსახიობი ფილმებიდან და სერიალებიდანაც მოიხსნება
+        // წაშლილი მსახიობი ფილმებიდან და ლაივიდანაც მოიხსნება
         const snaps = await Promise.all(
           ["movies", "series"].map((c) => getDocs(query(collection(db, c), where("actorIds", "array-contains", id))))
         );
