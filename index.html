@@ -806,6 +806,7 @@
       margin-top: 10px;
     }
 
+    /* ნომრები ავტომატურად ითვლება, ამიტომ დამატებისა და წაშლისას თავად ახლდება */
     .link-list {
       max-width: 720px;
       margin-top: 20px;
@@ -813,6 +814,7 @@
       flex-direction: column;
       gap: 8px;
       list-style: none;
+      counter-reset: link-number;
     }
 
     .link-item {
@@ -823,6 +825,15 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 8px;
+      counter-increment: link-number;
+    }
+
+    .link-item::before {
+      content: counter(link-number) ".";
+      flex-shrink: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
     }
 
     .link-item a {
@@ -837,8 +848,11 @@
       color: var(--accent);
     }
 
-    .link-item .card__action {
+    /* კოპირებისა და წაშლის ღილაკები */
+    .link-item__actions {
+      display: flex;
       flex-shrink: 0;
+      gap: 5px;
     }
 
     /* ---------- მობილური: ქვედა ბარი ---------- */
@@ -1154,6 +1168,8 @@
     const ICONS = {
       edit: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
       delete: '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>',
+      copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+      check: '<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>',
     };
 
     const TYPE_NAMES = { actor: "მსახიობი", movie: "ფილმი", series: "სერიალი", link: "ლინკი" };
@@ -1351,16 +1367,19 @@
       }
     }
 
-    // ლინკების სიის ერთი რიგი
+    // ლინკების სიის ერთი რიგი: ნომერი (CSS-იდან), ლინკი, კოპირებისა და წაშლის ღილაკები
     function linkItem(link) {
       return `
         <li class="link-item">
           <a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.url)}</a>
-          <button type="button" class="card__action card__action--delete" ${deleteAttrs({ id: link.id, name: link.url }, "link")} title="წაშლა" aria-label="წაშლა">${ICONS.delete}</button>
+          <div class="link-item__actions">
+            <button type="button" class="card__action" data-copy-url="${escapeHtml(link.url)}" title="კოპირება" aria-label="კოპირება">${ICONS.copy}</button>
+            <button type="button" class="card__action card__action--delete" ${deleteAttrs({ id: link.id, name: link.url }, "link")} title="წაშლა" aria-label="წაშლა">${ICONS.delete}</button>
+          </div>
         </li>`;
     }
 
-    // ლინკების გვერდი: ველი, დამატების ღილაკი და ქვემოთ ლინკების სია
+    // ლინკების გვერდი: ველი, დამატების ღილაკი და ქვემოთ დანომრილი სია
     async function linksPage(isCurrent) {
       app.innerHTML = `
         <h1 class="page-title">ლინკი</h1>
@@ -1369,7 +1388,7 @@
           <button type="submit" class="btn" disabled>დამატება</button>
         </form>
         <p class="form-error link-add__error" id="link-error" hidden></p>
-        ${listShell(`<ul class="link-list"></ul>`)}`;
+        ${listShell(`<ol class="link-list"></ol>`)}`;
 
       const form = document.getElementById("link-form");
       const button = form.querySelector("button");
@@ -1750,6 +1769,20 @@
         console.error(err);
         button.disabled = false;
         alert("წაშლა ვერ მოხერხდა: " + (err.message || err));
+      }
+    });
+
+    // ლინკის კოპირება; წარმატების შემდეგ ხატულა მცირე ხნით ✓-ად იცვლება
+    app.addEventListener("click", async (e) => {
+      const button = e.target.closest("[data-copy-url]");
+      if (!button) return;
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyUrl);
+        button.innerHTML = ICONS.check;
+        setTimeout(() => (button.innerHTML = ICONS.copy), 1500);
+      } catch (err) {
+        console.error(err);
+        alert("კოპირება ვერ მოხერხდა.");
       }
     });
 
