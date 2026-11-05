@@ -198,7 +198,7 @@
       padding: 32px;
     }
 
-    /* ძებნის ველი სქროლისას ზემოთ რჩება */
+    /* ძებნის ველი ყველა გვერდზე ჩანს და სქროლისას ზემოთ რჩება */
     .search-bar {
       position: sticky;
       top: 0;
@@ -1073,8 +1073,8 @@
     </nav>
 
     <main class="content">
-      <div class="search-bar" id="search-bar">
-        <input type="search" id="search" placeholder="ძებნა: მსახიობი, ფილმი, სურათი..." aria-label="ძებნა" autocomplete="off">
+      <div class="search-bar">
+        <input type="search" id="search" aria-label="ძებნა" autocomplete="off">
       </div>
       <div id="app"></div>
     </main>
@@ -1135,10 +1135,9 @@
     const loginError = document.getElementById("login-error");
     const panel = document.getElementById("panel");
     const app = document.getElementById("app");
-    const searchBar = document.getElementById("search-bar");
     const searchInput = document.getElementById("search");
 
-    // ძებნის მონაცემები: ერთხელ იტვირთება და ძებნის დახურვამდე ინახება
+    // ძებნის მონაცემები: გვერდისთვის ერთხელ იტვირთება და ძებნის დახურვამდე ინახება
     let searchData = null;
     let searchTimer = null;
 
@@ -1270,6 +1269,19 @@
       return `#actor/${encodeURIComponent(actor.id)}`;
     }
 
+    // მსახიობის ჯგუფი: სათაურად მსახიობი, ქვემოთ მისი ფილმები/ლაივი
+    function actorGroup(actor, items) {
+      const own = items.filter((i) => (i.actorIds || []).includes(actor.id));
+      return `
+        <section class="group">
+          <a href="${actorHref(actor)}" class="group__header">
+            <span class="group__avatar">${imageBox(actor)}</span>
+            <h2>${escapeHtml(actor.name)}</h2>
+          </a>
+          ${own.length ? `<div class="grid">${own.map((i) => card(i, i.type)).join("")}</div>` : `<p class="empty">ჯერ არაფერია დამატებული.</p>`}
+        </section>`;
+    }
+
     // ================= Firestore-დან წაკითხვა =================
 
     // ყველა მსახიობი ანბანის მიხედვით; category = "movie" / "series" / null
@@ -1296,15 +1308,17 @@
       return snap.docs.map(toItem).filter((item) => isHttpUrl(item.url));
     }
 
-    // ყველაფერი, რაშიც ძებნა ხდება
-    async function fetchSearchData() {
-      const [actors, movies, series, pics] = await Promise.all([
-        fetchActors(null),
-        fetchItems(["movie"]),
-        fetchItems(["series"]),
-        fetchUrls("pics"),
-      ]);
-      return { actors, movies, series, pics };
+    // ის მონაცემები, რომლებშიც ამ გვერდიდან ძებნა ხდება
+    async function fetchSearchData(page) {
+      if (page === "pics") return { pics: await fetchUrls("pics") };
+      if (page === "actors") return { actors: await fetchActors(actorFilter) };
+      if (page === "movies" || page === "series") {
+        const type = page === "movies" ? "movie" : "series";
+        const [actors, items] = await Promise.all([fetchActors(type), fetchItems([type])]);
+        return { actors, items };
+      }
+      const [actors, movies, series] = await Promise.all([fetchActors(null), fetchItems(["movie"]), fetchItems(["series"])]);
+      return { actors, movies, series };
     }
 
     // ================= გვერდები =================
@@ -1360,19 +1374,7 @@
               <div class="grid">${others.map((i) => card(i, i.type)).join("")}</div>
             </section>`;
         }
-        html += actors
-          .map((actor) => {
-            const own = items.filter((i) => (i.actorIds || []).includes(actor.id));
-            return `
-              <section class="group">
-                <a href="${actorHref(actor)}" class="group__header">
-                  <span class="group__avatar">${imageBox(actor)}</span>
-                  <h2>${escapeHtml(actor.name)}</h2>
-                </a>
-                ${own.length ? `<div class="grid">${own.map((i) => card(i, i.type)).join("")}</div>` : `<p class="empty">ჯერ არაფერია დამატებული.</p>`}
-              </section>`;
-          })
-          .join("");
+        html += actors.map((actor) => actorGroup(actor, items)).join("");
         groups.innerHTML = html;
         return actors.length + others.length;
       });
@@ -1548,36 +1550,41 @@
       if (isCurrent()) button.disabled = false;
     }
 
-    // ძებნის შედეგები: სახელის დასაწყისით ეძებს მსახიობებს, ფილმებს, ლაივსა და სურათებს.
-    // pic გვერდზე ნაპოვნი სურათები პირველ ადგილზეა, დანარჩენი სურათები კი ბოლოშია.
+    // ძებნის შედეგები სახელის დასაწყისით; თითოეული გვერდი მხოლოდ საკუთარ შიგთავსს ეძებს
     async function searchPage(text, page, isCurrent) {
       if (!searchData) app.innerHTML = `<p class="empty">იტვირთება...</p>`;
       try {
-        searchData ??= fetchSearchData();
-        const { actors, movies, series, pics } = await searchData;
+        searchData ??= fetchSearchData(page);
+        const { actors = [], movies = [], series = [], items = [], pics = [] } = await searchData;
         if (!isCurrent()) return;
 
         const startsWithText = (item) => (item.name || "").toLowerCase().startsWith(text);
-
-        const picSection = ["სურათები", pics.filter(startsWithText).map((p) => picCard(p))];
-        const sections = [
-          ["მსახიობები", actors.filter(startsWithText).map((a) => card(a, "actor", actorHref(a)))],
-          ["ფილმები", movies.filter(startsWithText).map((i) => card(i, i.type))],
-          ["ლაივი", series.filter(startsWithText).map((i) => card(i, i.type))],
-        ];
-        if (page === "pics") sections.unshift(picSection);
-        else sections.push(picSection);
-
         const sectionHtml = ([title, cards]) =>
           cards.length ? `<h2 class="section-title">${title}</h2><div class="grid">${cards.join("")}</div>` : "";
-        const results = sections.map(sectionHtml).join("");
-        const otherPics =
-          page === "pics" ? sectionHtml(["სხვა სურათები", pics.filter((p) => !startsWithText(p)).map((p) => picCard(p))]) : "";
+
+        let results = "";
+        let rest = "";
+        if (page === "pics") {
+          // ნაპოვნი სურათები პირველ ადგილზეა, დანარჩენები — ქვემოთ
+          results = sectionHtml(["სურათები", pics.filter(startsWithText).map((p) => picCard(p))]);
+          rest = sectionHtml(["სხვა სურათები", pics.filter((p) => !startsWithText(p)).map((p) => picCard(p))]);
+        } else if (page === "movies" || page === "series") {
+          // ამ კატეგორიის ნაპოვნი მსახიობები თავისი ფილმებით/ლაივით
+          results = actors.filter(startsWithText).map((actor) => actorGroup(actor, items)).join("");
+        } else {
+          results = [
+            ["მსახიობები", actors.filter(startsWithText).map((a) => card(a, "actor", actorHref(a)))],
+            ["ფილმები", movies.filter(startsWithText).map((i) => card(i, i.type))],
+            ["ლაივი", series.filter(startsWithText).map((i) => card(i, i.type))],
+          ]
+            .map(sectionHtml)
+            .join("");
+        }
 
         app.innerHTML = `
           <h1 class="page-title">ძებნა: „${escapeHtml(searchInput.value.trim())}“</h1>
           ${results || `<p class="empty">ვერაფერი მოიძებნა.</p>`}
-          ${otherPics}`;
+          ${rest}`;
       } catch (err) {
         searchData = null;
         if (isCurrent()) app.innerHTML = errorHtml(err);
@@ -1960,6 +1967,14 @@
     // ბოლო ნანახი სია — რედაქტირების შემდეგ აქ ვბრუნდებით
     let lastListHash = "#home";
 
+    // ძებნის ველის მინიშნება იმის მიხედვით, რას ეძებს ეს გვერდი
+    const SEARCH_HINTS = {
+      movies: "მსახიობის ძებნა...",
+      series: "მსახიობის ძებნა...",
+      actors: "მსახიობის ძებნა...",
+      pics: "სურათის ძებნა...",
+    };
+
     async function render() {
       const id = ++renderId;
       const isCurrent = () => id === renderId && !panel.hidden;
@@ -1973,8 +1988,7 @@
       });
       document.title = document.querySelector(".nav__link.is-active span").textContent + " · კინო";
 
-      // ფილმებისა და ლაივის გვერდებზე ძებნა არ არის
-      searchBar.hidden = page === "movies" || page === "series";
+      searchInput.placeholder = SEARCH_HINTS[page] || "ძებნა: მსახიობი, ფილმი, ლაივი...";
 
       const searchText = searchInput.value.trim().toLowerCase();
       if (searchText) await searchPage(searchText, page, isCurrent);
