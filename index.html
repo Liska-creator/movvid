@@ -198,7 +198,7 @@
       padding: 32px;
     }
 
-    /* ძებნის ველი ყველა გვერდზე ჩანს და სქროლისას ზემოთ რჩება */
+    /* ძებნის ველი სქროლისას ზემოთ რჩება */
     .search-bar {
       position: sticky;
       top: 0;
@@ -1073,7 +1073,7 @@
     </nav>
 
     <main class="content">
-      <div class="search-bar">
+      <div class="search-bar" id="search-bar">
         <input type="search" id="search" placeholder="ძებნა: მსახიობი, ფილმი, სურათი..." aria-label="ძებნა" autocomplete="off">
       </div>
       <div id="app"></div>
@@ -1135,6 +1135,7 @@
     const loginError = document.getElementById("login-error");
     const panel = document.getElementById("panel");
     const app = document.getElementById("app");
+    const searchBar = document.getElementById("search-bar");
     const searchInput = document.getElementById("search");
 
     // ძებნის მონაცემები: ერთხელ იტვირთება და ძებნის დახურვამდე ინახება
@@ -1547,7 +1548,7 @@
       if (isCurrent()) button.disabled = false;
     }
 
-    // ძებნის შედეგები ნებისმიერ გვერდზე: სახელით ეძებს მსახიობებს, ფილმებს, ლაივსა და სურათებს.
+    // ძებნის შედეგები: სახელის დასაწყისით ეძებს მსახიობებს, ფილმებს, ლაივსა და სურათებს.
     // pic გვერდზე ნაპოვნი სურათები პირველ ადგილზეა, დანარჩენი სურათები კი ბოლოშია.
     async function searchPage(text, page, isCurrent) {
       if (!searchData) app.innerHTML = `<p class="empty">იტვირთება...</p>`;
@@ -1556,17 +1557,13 @@
         const { actors, movies, series, pics } = await searchData;
         if (!isCurrent()) return;
 
-        const hasText = (item) => (item.name || "").toLowerCase().includes(text);
-        const foundActors = actors.filter(hasText);
-        const foundActorIds = new Set(foundActors.map((a) => a.id));
-        // ფილმი ან ლაივი ჩანს, თუ მისი ან მისი მსახიობის სახელი ემთხვევა
-        const isFound = (item) => hasText(item) || (item.actorIds || []).some((id) => foundActorIds.has(id));
+        const startsWithText = (item) => (item.name || "").toLowerCase().startsWith(text);
 
-        const picSection = ["სურათები", pics.filter(hasText).map((p) => picCard(p))];
+        const picSection = ["სურათები", pics.filter(startsWithText).map((p) => picCard(p))];
         const sections = [
-          ["მსახიობები", foundActors.map((a) => card(a, "actor", actorHref(a)))],
-          ["ფილმები", movies.filter(isFound).map((i) => card(i, i.type))],
-          ["ლაივი", series.filter(isFound).map((i) => card(i, i.type))],
+          ["მსახიობები", actors.filter(startsWithText).map((a) => card(a, "actor", actorHref(a)))],
+          ["ფილმები", movies.filter(startsWithText).map((i) => card(i, i.type))],
+          ["ლაივი", series.filter(startsWithText).map((i) => card(i, i.type))],
         ];
         if (page === "pics") sections.unshift(picSection);
         else sections.push(picSection);
@@ -1575,7 +1572,7 @@
           cards.length ? `<h2 class="section-title">${title}</h2><div class="grid">${cards.join("")}</div>` : "";
         const results = sections.map(sectionHtml).join("");
         const otherPics =
-          page === "pics" ? sectionHtml(["სხვა სურათები", pics.filter((p) => !hasText(p)).map((p) => picCard(p))]) : "";
+          page === "pics" ? sectionHtml(["სხვა სურათები", pics.filter((p) => !startsWithText(p)).map((p) => picCard(p))]) : "";
 
         app.innerHTML = `
           <h1 class="page-title">ძებნა: „${escapeHtml(searchInput.value.trim())}“</h1>
@@ -1975,6 +1972,9 @@
         link.classList.toggle("is-active", link.dataset.page === navPage);
       });
       document.title = document.querySelector(".nav__link.is-active span").textContent + " · კინო";
+
+      // ფილმებისა და ლაივის გვერდებზე ძებნა არ არის
+      searchBar.hidden = page === "movies" || page === "series";
 
       const searchText = searchInput.value.trim().toLowerCase();
       if (searchText) await searchPage(searchText, page, isCurrent);
