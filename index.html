@@ -477,8 +477,8 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(354px, 1fr));
+      gap: 18px;
     }
 
     .card {
@@ -496,6 +496,7 @@
 
     /* სურათის ფონზე ფერადი გრადიენტია — ჩანს, თუ სურათი არ არის ან ვერ ჩაიტვირთა */
     .image-box {
+      position: relative;
       aspect-ratio: 1 / 1;
       display: flex;
       align-items: center;
@@ -506,10 +507,21 @@
       overflow: hidden;
     }
 
+    /* სურათი მთლიანად ჩანს: არ იჭრება და არ იწელება */
     .image-box img {
+      position: relative;
       width: 100%;
       height: 100%;
+      object-fit: contain;
+    }
+
+    /* სურათის გვერდებზე დარჩენილ ადგილს იმავე სურათის ბუნდოვანი ვერსია ავსებს */
+    .image-box .image-box__blur {
+      position: absolute;
+      inset: 0;
       object-fit: cover;
+      filter: blur(20px) brightness(0.5);
+      transform: scale(1.2);
     }
 
     .card__body {
@@ -624,7 +636,7 @@
     }
 
     .group__avatar {
-      width: 40px;
+      width: 44px;
       flex-shrink: 0;
       border-radius: 6px;
       overflow: hidden;
@@ -643,7 +655,7 @@
     }
 
     .profile .image-box {
-      width: 160px;
+      width: 226px;
       flex-shrink: 0;
       border-radius: 10px;
     }
@@ -766,7 +778,7 @@
     .preview img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
     }
 
     /* ---------- მობილური: ქვედა ბარი ---------- */
@@ -868,10 +880,11 @@
 
       .profile {
         gap: 16px;
+        flex-wrap: wrap;
       }
 
       .profile .image-box {
-        width: 110px;
+        width: 171px;
       }
     }
   </style>
@@ -1045,9 +1058,12 @@
       return `<p class="form-error">შეცდომა: ${text}</p>`;
     }
 
+    // პირველი სურათი ბუნდოვანი ფონია, მეორე — მთლიანი, მოუჭრელი სურათი
     function imageBox(item) {
+      const src = escapeHtml(item.image);
       const content = item.image
-        ? `<img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" loading="lazy" onerror="this.remove()">`
+        ? `<img class="image-box__blur" src="${src}" alt="" loading="lazy" onerror="this.remove()">
+           <img src="${src}" alt="${escapeHtml(item.name)}" loading="lazy" onerror="this.remove()">`
         : escapeHtml(initials(item.name));
       return `<div class="image-box" style="background:${placeholderColor(item.name)}">${content}</div>`;
     }
@@ -1419,7 +1435,7 @@
         try {
           const constraints = [orderBy("nameLower")];
           // სახელის დასაწყისით ძებნა
-          if (text) constraints.push(where("nameLower", ">=", text), where("nameLower", "<=", text + ""));
+          if (text) constraints.push(where("nameLower", ">=", text), where("nameLower", "<=", text + "\uf8ff"));
           constraints.push(limit(SEARCH_LIMIT));
           const snap = await getDocs(query(collection(db, "actors"), ...constraints));
           if (id !== searchId) return;
