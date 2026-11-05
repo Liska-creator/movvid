@@ -198,6 +198,32 @@
       padding: 32px;
     }
 
+    /* ძებნის ველი ყველა გვერდზე ჩანს და სქროლისას ზემოთ რჩება */
+    .search-bar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      padding: 8px 0 16px;
+      background: var(--bg);
+    }
+
+    .search-bar input {
+      width: 100%;
+      max-width: 560px;
+      padding: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+    }
+
+    .search-bar input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
     .page-header {
       display: flex;
       align-items: center;
@@ -797,6 +823,10 @@
       font-size: 15px;
     }
 
+    .link-add input[name="name"] {
+      flex: 0 1 180px;
+    }
+
     .link-add input:focus {
       outline: none;
       border-color: var(--accent);
@@ -965,6 +995,19 @@
       .profile .image-box {
         width: 171px;
       }
+
+      /* სურათის ფორმაში ლინკის ველი ცალკე რიგშია, სახელი და ღილაკი — მის ქვემოთ */
+      .link-add--named {
+        flex-wrap: wrap;
+      }
+
+      .link-add--named input[name="url"] {
+        flex-basis: 100%;
+      }
+
+      .link-add--named input[name="name"] {
+        flex: 1;
+      }
     }
   </style>
 </head>
@@ -1029,7 +1072,12 @@
       </div>
     </nav>
 
-    <main class="content" id="app"></main>
+    <main class="content">
+      <div class="search-bar">
+        <input type="search" id="search" placeholder="ძებნა: მსახიობი, ფილმი, სურათი..." aria-label="ძებნა" autocomplete="off">
+      </div>
+      <div id="app"></div>
+    </main>
   </div>
 
   <script type="module">
@@ -1087,6 +1135,11 @@
     const loginError = document.getElementById("login-error");
     const panel = document.getElementById("panel");
     const app = document.getElementById("app");
+    const searchInput = document.getElementById("search");
+
+    // ძებნის მონაცემები: ერთხელ იტვირთება და ძებნის დახურვამდე ინახება
+    let searchData = null;
+    let searchTimer = null;
 
     const configured = !firebaseConfig.apiKey.startsWith("PASTE");
     let auth = null;
@@ -1242,6 +1295,17 @@
       return snap.docs.map(toItem).filter((item) => isHttpUrl(item.url));
     }
 
+    // ყველაფერი, რაშიც ძებნა ხდება
+    async function fetchSearchData() {
+      const [actors, movies, series, pics] = await Promise.all([
+        fetchActors(null),
+        fetchItems(["movie"]),
+        fetchItems(["series"]),
+        fetchUrls("pics"),
+      ]);
+      return { actors, movies, series, pics };
+    }
+
     // ================= გვერდები =================
 
     function pageHeader(title, addHref) {
@@ -1392,9 +1456,10 @@
     function picCard(pic) {
       return `
         <article class="card">
-          ${imageBox({ name: "სურათი", image: pic.url })}
+          ${imageBox({ name: pic.name || "სურათი", image: pic.url })}
+          ${pic.name ? `<div class="card__body"><h2 class="card__title">${escapeHtml(pic.name)}</h2></div>` : ""}
           <div class="card__actions">
-            <button type="button" class="card__action card__action--delete" ${deleteAttrs({ id: pic.id, name: pic.url }, "pic")} title="წაშლა" aria-label="წაშლა">${ICONS.delete}</button>
+            <button type="button" class="card__action card__action--delete" ${deleteAttrs({ id: pic.id, name: pic.name || pic.url }, "pic")} title="წაშლა" aria-label="წაშლა">${ICONS.delete}</button>
           </div>
         </article>`;
     }
@@ -1405,6 +1470,7 @@
         title: "ლინკი",
         collection: "links",
         inputLabel: "ლინკი",
+        hasName: false,
         listHtml: `<ol class="link-list" id="url-list"></ol>`,
         itemHtml: linkItem,
       },
@@ -1412,6 +1478,7 @@
         title: "pic",
         collection: "pics",
         inputLabel: "სურათის ლინკი",
+        hasName: true,
         listHtml: `<div class="grid pic-grid" id="url-list"></div>`,
         itemHtml: picCard,
       },
@@ -1421,8 +1488,9 @@
     async function urlPage(page, isCurrent) {
       app.innerHTML = `
         <h1 class="page-title">${page.title}</h1>
-        <form class="link-add" id="url-form">
+        <form class="link-add ${page.hasName ? "link-add--named" : ""}" id="url-form">
           <input type="url" name="url" placeholder="https://..." aria-label="${page.inputLabel}" required>
+          ${page.hasName ? `<input type="text" name="name" placeholder="სახელი" aria-label="სურათის სახელი" maxlength="200" required>` : ""}
           <button type="submit" class="btn" disabled>დამატება</button>
         </form>
         <p class="form-error link-add__error" id="url-error" hidden></p>
@@ -1434,28 +1502,37 @@
       const list = document.getElementById("url-list");
       const status = app.querySelector(".list-status");
 
+      function showError(text) {
+        errorBox.textContent = text;
+        errorBox.hidden = false;
+      }
+
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         const url = form.elements.url.value.trim();
+        const name = page.hasName ? form.elements.name.value.trim() : "";
         if (!isHttpUrl(url)) {
-          errorBox.textContent = "ლინკი უნდა იწყებოდეს http:// ან https://-ით.";
-          errorBox.hidden = false;
+          showError("ლინკი უნდა იწყებოდეს http:// ან https://-ით.");
+          return;
+        }
+        if (page.hasName && !name) {
+          showError("ჩაწერე სურათის სახელი.");
           return;
         }
 
+        const fields = page.hasName ? { url, name } : { url };
         button.disabled = true;
         errorBox.hidden = true;
         try {
-          const ref = await addDoc(collection(db, page.collection), { url, createdAt: serverTimestamp() });
+          const ref = await addDoc(collection(db, page.collection), { ...fields, createdAt: serverTimestamp() });
           if (!isCurrent()) return;
-          list.insertAdjacentHTML("afterbegin", page.itemHtml({ id: ref.id, url }));
+          list.insertAdjacentHTML("afterbegin", page.itemHtml({ id: ref.id, ...fields }));
           status.hidden = true;
           form.reset();
           form.elements.url.focus();
         } catch (err) {
           console.error(err);
-          errorBox.textContent = "დამატება ვერ მოხერხდა: " + (err.message || err);
-          errorBox.hidden = false;
+          showError("დამატება ვერ მოხერხდა: " + (err.message || err));
         } finally {
           button.disabled = false;
         }
@@ -1469,6 +1546,61 @@
       });
       if (isCurrent()) button.disabled = false;
     }
+
+    // ძებნის შედეგები ნებისმიერ გვერდზე: სახელით ეძებს მსახიობებს, ფილმებს, ლაივსა და სურათებს.
+    // pic გვერდზე ნაპოვნი სურათები პირველ ადგილზეა, დანარჩენი სურათები კი ბოლოშია.
+    async function searchPage(text, page, isCurrent) {
+      if (!searchData) app.innerHTML = `<p class="empty">იტვირთება...</p>`;
+      try {
+        searchData ??= fetchSearchData();
+        const { actors, movies, series, pics } = await searchData;
+        if (!isCurrent()) return;
+
+        const hasText = (item) => (item.name || "").toLowerCase().includes(text);
+        const foundActors = actors.filter(hasText);
+        const foundActorIds = new Set(foundActors.map((a) => a.id));
+        // ფილმი ან ლაივი ჩანს, თუ მისი ან მისი მსახიობის სახელი ემთხვევა
+        const isFound = (item) => hasText(item) || (item.actorIds || []).some((id) => foundActorIds.has(id));
+
+        const picSection = ["სურათები", pics.filter(hasText).map((p) => picCard(p))];
+        const sections = [
+          ["მსახიობები", foundActors.map((a) => card(a, "actor", actorHref(a)))],
+          ["ფილმები", movies.filter(isFound).map((i) => card(i, i.type))],
+          ["ლაივი", series.filter(isFound).map((i) => card(i, i.type))],
+        ];
+        if (page === "pics") sections.unshift(picSection);
+        else sections.push(picSection);
+
+        const sectionHtml = ([title, cards]) =>
+          cards.length ? `<h2 class="section-title">${title}</h2><div class="grid">${cards.join("")}</div>` : "";
+        const results = sections.map(sectionHtml).join("");
+        const otherPics =
+          page === "pics" ? sectionHtml(["სხვა სურათები", pics.filter((p) => !hasText(p)).map((p) => picCard(p))]) : "";
+
+        app.innerHTML = `
+          <h1 class="page-title">ძებნა: „${escapeHtml(searchInput.value.trim())}“</h1>
+          ${results || `<p class="empty">ვერაფერი მოიძებნა.</p>`}
+          ${otherPics}`;
+      } catch (err) {
+        searchData = null;
+        if (isCurrent()) app.innerHTML = errorHtml(err);
+      }
+    }
+
+    function clearSearch() {
+      clearTimeout(searchTimer);
+      searchInput.value = "";
+      searchData = null;
+    }
+
+    searchInput.addEventListener("input", () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        // ველის გასუფთავების შემდეგ მონაცემები თავიდან ჩაიტვირთება, რომ ახალი ჩანაწერებიც მოიძებნოს
+        if (!searchInput.value.trim()) searchData = null;
+        render();
+      }, 250);
+    });
 
     // რედაქტირების გვერდი: ჩანაწერს და მიბმული მსახიობების სახელებს ტვირთავს, შემდეგ შევსებულ ფორმას აჩვენებს
     async function editPage(type, id, isCurrent) {
@@ -1795,6 +1927,7 @@
       button.disabled = true;
       try {
         await deleteItem(type, id);
+        searchData = null; // ძებნის შედეგებშიც აღარ უნდა ჩანდეს
         const [page] = location.hash.slice(1).split("/");
         // რედაქტირების ან წაშლილი მსახიობის გვერდიდან — წინა სიაზე დაბრუნება, სხვაგან — სიის განახლება
         if (page === "edit" || (page === "actor" && type === "actor")) {
@@ -1843,7 +1976,9 @@
       });
       document.title = document.querySelector(".nav__link.is-active span").textContent + " · კინო";
 
-      if (page === "movies") await groupedPage("movie", isCurrent);
+      const searchText = searchInput.value.trim().toLowerCase();
+      if (searchText) await searchPage(searchText, page, isCurrent);
+      else if (page === "movies") await groupedPage("movie", isCurrent);
       else if (page === "series") await groupedPage("series", isCurrent);
       else if (page === "actors") await actorsPage(isCurrent);
       else if (page === "actor") await actorPage(decodeURIComponent(param), isCurrent);
@@ -1864,8 +1999,18 @@
 
     window.addEventListener("hashchange", () => {
       if (panel.hidden) return;
+      clearSearch();
       render();
       window.scrollTo(0, 0);
+    });
+
+    // უკვე გახსნილ გვერდზე დაჭერისას hashchange არ ხდება, ამიტომ ძებნა აქ იხურება
+    document.querySelector(".nav").addEventListener("click", (e) => {
+      const link = e.target.closest("a");
+      if (link && link.getAttribute("href") === location.hash && searchInput.value) {
+        clearSearch();
+        render();
+      }
     });
 
     // ================= ავტომატური გასვლა უმოქმედობისას =================
@@ -1918,6 +2063,7 @@
 
     function showLogin() {
       renderId++; // მიმდინარე ჩატვირთვები აღარ გამოჩნდეს
+      clearSearch();
       splash.hidden = true;
       panel.hidden = true;
       app.innerHTML = "";
