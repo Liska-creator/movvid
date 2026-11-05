@@ -355,10 +355,6 @@
       margin-top: 14px;
     }
 
-    .load-more {
-      margin-top: 32px;
-    }
-
     /* ---------- ჩამოსაშლელი სია (მსახიობების არჩევა ფორმაში) ---------- */
 
     .dropdown {
@@ -965,7 +961,6 @@
       where,
       orderBy,
       limit,
-      startAfter,
       writeBatch,
       arrayUnion,
       arrayRemove,
@@ -987,9 +982,6 @@
     // შესვლის სახელი ელფოსტად გადაიქცევა: "Admin" → "admin@kino.local".
     // Firebase Authentication-ში ადმინი სწორედ ამ ელფოსტით უნდა შექმნა.
     const LOGIN_EMAIL_DOMAIN = "kino.local";
-
-    // რამდენი მსახიობი ჩაიტვირთოს ერთ ჯერზე (Firestore-ის დღიური ლიმიტის დასაზოგად)
-    const PAGE_SIZE = 20;
 
     const TYPES = {
       movie: { collection: "movies", route: "movies", title: "ფილმები" },
@@ -1132,34 +1124,21 @@
 
     // ================= Firestore-დან წაკითხვა =================
 
-    // მსახიობების ერთი გვერდი ანბანის მიხედვით; category = "movie" / "series" / null
-    async function fetchActorsPage(category, cursor) {
+    // ყველა მსახიობი ანბანის მიხედვით; category = "movie" / "series" / null
+    async function fetchActors(category) {
       const constraints = [];
       if (category) constraints.push(where("categories", "array-contains", category));
       constraints.push(orderBy("nameLower"));
-      if (cursor) constraints.push(startAfter(cursor));
-      constraints.push(limit(PAGE_SIZE));
       const snap = await getDocs(query(collection(db, "actors"), ...constraints));
-      return { actors: snap.docs.map(toItem), cursor: snap.docs[snap.docs.length - 1] || cursor, hasMore: snap.docs.length === PAGE_SIZE };
+      return snap.docs.map(toItem);
     }
 
     // ჩანაწერს ტიპიც ახლავს ("movie" / "series"), რომ ბარათმა იცოდეს, რას არედაქტირებს
     const withType = (type) => (snapshot) => ({ ...toItem(snapshot), type });
 
-    // ამ მსახიობების (მაქს. 30) ფილმები/ლაივი
-    async function fetchItemsForActors(types, actorIds) {
-      if (!actorIds.length) return [];
-      const snaps = await Promise.all(
-        types.map((t) => getDocs(query(collection(db, TYPES[t].collection), where("actorIds", "array-contains-any", actorIds))))
-      );
-      return snaps.flatMap((s, i) => s.docs.map(withType(types[i]))).sort(byName);
-    }
-
-    // ფილმები/ლაივი, რომლებსაც მსახიობი არ აქვთ მიბმული
-    async function fetchItemsWithoutActors(types) {
-      const snaps = await Promise.all(
-        types.map((t) => getDocs(query(collection(db, TYPES[t].collection), where("actorIds", "==", []))))
-      );
+    // ყველა ფილმი/ლაივი ანბანის მიხედვით
+    async function fetchItems(types) {
+      const snaps = await Promise.all(types.map((t) => getDocs(collection(db, TYPES[t].collection))));
       return snaps.flatMap((s, i) => s.docs.map(withType(types[i]))).sort(byName);
     }
 
@@ -1173,38 +1152,24 @@
         </div>`;
     }
 
-    // სია ნაწილ-ნაწილ ჩატვირთვით: loadPage() ამატებს შიგთავსს და აბრუნებს { added, hasMore }
-    async function paginatedList(container, isCurrent, loadPage) {
-      const status = container.querySelector(".list-status");
-      const more = container.querySelector(".load-more");
-      let total = 0;
-
-      async function next() {
-        more.hidden = true;
-        status.hidden = false;
-        status.textContent = "იტვირთება...";
-        try {
-          const { added, hasMore } = await loadPage();
-          if (!isCurrent()) return;
-          total += added;
-          status.textContent = "ჯერ არაფერია დამატებული.";
-          status.hidden = total > 0;
-          more.hidden = !hasMore;
-        } catch (err) {
-          if (!isCurrent()) return;
-          status.hidden = true;
-          status.insertAdjacentHTML("beforebegin", errorHtml(err));
-        }
+    // მთელი სიის ჩატვირთვა: load() ამატებს შიგთავსს და აბრუნებს ჩანაწერების რაოდენობას
+    async function loadList(isCurrent, load) {
+      const status = app.querySelector(".list-status");
+      try {
+        const added = await load();
+        if (!isCurrent()) return;
+        status.textContent = "ჯერ არაფერია დამატებული.";
+        status.hidden = added > 0;
+      } catch (err) {
+        if (!isCurrent()) return;
+        status.hidden = true;
+        status.insertAdjacentHTML("beforebegin", errorHtml(err));
       }
-
-      more.addEventListener("click", next);
-      await next();
     }
 
     const listShell = (inner) => `
       ${inner}
-      <p class="empty list-status"></p>
-      <button type="button" class="btn btn--ghost load-more" hidden>მეტის ჩვენება</button>`;
+      <p class="empty list-status">იტვირთება...</p>`;
 
     // მთავარი (type = null), ფილმები ან ლაივი — დაჯგუფებული მსახიობების მიხედვით (ანბანით)
     async function groupedPage(type, isCurrent) {
@@ -1213,16 +1178,14 @@
         listShell(`<div class="groups"></div>`);
       const groups = app.querySelector(".groups");
       const itemTypes = type ? [type] : ["movie", "series"];
-      let cursor = null;
 
-      await paginatedList(app, isCurrent, async () => {
-        const isFirstPage = !cursor;
-        const page = await fetchActorsPage(type, cursor);
-        cursor = page.cursor;
-        const items = await fetchItemsForActors(itemTypes, page.actors.map((a) => a.id));
-        // მსახიობის გარეშე დარჩენილები — პირველ ადგილზე, „სხვა“-ში (მხოლოდ პირველი გვერდის ჩატვირთვისას)
-        const others = isFirstPage ? await fetchItemsWithoutActors(itemTypes) : [];
-        if (!isCurrent()) return { added: 0, hasMore: false };
+      await loadList(isCurrent, async () => {
+        const [actors, items] = await Promise.all([fetchActors(type), fetchItems(itemTypes)]);
+        if (!isCurrent()) return 0;
+
+        // ჩანაწერები, რომელთა მსახიობიც ამ სიაში არ არის — პირველ ადგილზე, „სხვა“-ში
+        const shownActorIds = new Set(actors.map((a) => a.id));
+        const others = items.filter((i) => !(i.actorIds || []).some((id) => shownActorIds.has(id)));
 
         let html = "";
         if (others.length) {
@@ -1232,7 +1195,7 @@
               <div class="grid">${others.map((i) => card(i, i.type)).join("")}</div>
             </section>`;
         }
-        html += page.actors
+        html += actors
           .map((actor) => {
             const own = items.filter((i) => (i.actorIds || []).includes(actor.id));
             return `
@@ -1245,8 +1208,8 @@
               </section>`;
           })
           .join("");
-        groups.insertAdjacentHTML("beforeend", html);
-        return { added: page.actors.length + others.length, hasMore: page.hasMore };
+        groups.innerHTML = html;
+        return actors.length + others.length;
       });
     }
 
@@ -1262,14 +1225,12 @@
         `<div class="filters">${filterButton("movie", "ფილმები")}${filterButton("series", "ლაივი")}</div>` +
         listShell(`<div class="grid"></div>`);
       const grid = app.querySelector(".grid");
-      let cursor = null;
 
-      await paginatedList(app, isCurrent, async () => {
-        const page = await fetchActorsPage(actorFilter, cursor);
-        cursor = page.cursor;
-        if (!isCurrent()) return { added: 0, hasMore: false };
-        grid.insertAdjacentHTML("beforeend", page.actors.map((a) => card(a, "actor", actorHref(a))).join(""));
-        return { added: page.actors.length, hasMore: page.hasMore };
+      await loadList(isCurrent, async () => {
+        const actors = await fetchActors(actorFilter);
+        if (!isCurrent()) return 0;
+        grid.innerHTML = actors.map((a) => card(a, "actor", actorHref(a))).join("");
+        return actors.length;
       });
     }
 
